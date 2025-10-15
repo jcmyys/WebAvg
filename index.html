@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>평단가 계산기</title>
+<style>
+  body { font-family: Arial, sans-serif; padding: 20px; max-width: 700px; margin: auto; }
+  h1 { text-align: center; margin-bottom: 10px; }
+  #result { font-weight: bold; margin-bottom: 15px; color: #0055aa; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  th, td { border: 1px solid #ccc; text-align: center; padding: 8px; }
+  th { background-color: #f0f0f0; }
+  input[type="number"] { width: 100%; box-sizing: border-box; font-size: 1.1em; padding: 6px; }
+  input[type="number"]:focus { outline: 2px solid #0055aa; }
+  button { font-size: 1em; padding: 10px 15px; margin-right: 10px; cursor: pointer; }
+  #buttonRow { text-align: center; margin-top: 15px; }
+  #tableContainer { max-height: 400px; overflow-y: auto; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h1>평단가 계산기</h1>
+
+<div id="result">건수: - / 평단가: - / 수량: - / 합가: -</div>
+
+<div id="tableContainer">
+  <table id="stockTable">
+    <thead>
+      <tr><th>단가</th><th>수량</th><th>합가</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<div id="buttonRow">
+  <button id="addRowBtn">행 추가</button>
+  <button id="calcBtn">평단가 계산</button>
+  <button id="resetBtn">리셋</button>
+</div>
+
+<script>
+  const tbody = document.querySelector('#stockTable tbody');
+  const resultDiv = document.getElementById('result');
+
+  // 숫자 입력 필드에서 엔터 누를 시 다음 필드로 이동 가능하도록
+  function focusNextInput(currentInput) {
+    const inputs = Array.from(tbody.querySelectorAll('input'));
+    const index = inputs.indexOf(currentInput);
+    if (index < inputs.length - 1) {
+      inputs[index + 1].focus();
+    } else {
+      addRow(); // 마지막 필드이면 새 행 추가 후 포커스 이동
+      setTimeout(() => {
+        inputs.push(tbody.querySelectorAll('input')[inputs.length]); // 새로 추가된 인풋
+        inputs[inputs.length - 1].focus();
+      }, 0);
+    }
+  }
+
+  // 입력값 변경시 합가 업데이트
+  function updateSum(row) {
+    const priceInput = row.querySelector('.price');
+    const qtyInput = row.querySelector('.qty');
+    const sumCell = row.querySelector('.sum');
+
+    const price = parseFloat(priceInput.value);
+    const qty = parseFloat(qtyInput.value);
+    if (!isNaN(price) && !isNaN(qty)) {
+      sumCell.textContent = (price * qty).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    } else {
+      sumCell.textContent = '-';
+    }
+  }
+
+  // 새 입력 행 추가
+  function addRow() {
+    const row = document.createElement('tr');
+
+    const priceTd = document.createElement('td');
+    const priceInput = document.createElement('input');
+    priceInput.type = 'number';
+    priceInput.min = '0';
+    priceInput.className = 'price';
+    priceInput.step = 'any';
+    priceInput.autocomplete = 'off';
+    priceInput.addEventListener('input', () => updateSum(row));
+    priceInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const qtyInput = row.querySelector('.qty');
+        qtyInput.focus();
+      }
+    });
+    priceTd.appendChild(priceInput);
+
+    const qtyTd = document.createElement('td');
+    const qtyInput = document.createElement('input');
+    qtyInput.type = 'number';
+    qtyInput.min = '0';
+    qtyInput.className = 'qty';
+    qtyInput.step = 'any';
+    qtyInput.autocomplete = 'off';
+    qtyInput.addEventListener('input', () => updateSum(row));
+    qtyInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // 다음 행의 price 입력란으로
+        let nextRow = row.nextElementSibling;
+        if (!nextRow) {
+          addRow();
+          nextRow = row.nextElementSibling;
+        }
+        nextRow.querySelector('.price').focus();
+      }
+    });
+    qtyTd.appendChild(qtyInput);
+
+    const sumTd = document.createElement('td');
+    sumTd.className = 'sum';
+    sumTd.textContent = '-';
+
+    row.appendChild(priceTd);
+    row.appendChild(qtyTd);
+    row.appendChild(sumTd);
+
+    tbody.appendChild(row);
+  }
+
+  // 평단가 계산 및 결과 표시
+  function calculateAverage() {
+    let totalCost = 0;
+    let totalQty = 0;
+    let count = 0;
+
+    tbody.querySelectorAll('tr').forEach(row => {
+      const price = parseFloat(row.querySelector('.price').value);
+      const qty = parseFloat(row.querySelector('.qty').value);
+      if (!isNaN(price) && !isNaN(qty) && qty > 0) {
+        totalCost += price * qty;
+        totalQty += qty;
+        count++;
+      }
+    });
+
+    if (totalQty === 0) {
+      resultDiv.textContent = '건수: - / 평단가: - / 수량: - / 합가: -';
+      resultDiv.style.color = 'red';
+    } else {
+      const avgPrice = totalCost / totalQty;
+      resultDiv.textContent = 
+        `건수: ${count} / 평단가: ${avgPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})} / 수량: ${totalQty.toLocaleString()} / 합가: ${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+      resultDiv.style.color = '#0055aa';
+    }
+  }
+
+  // 리셋 함수
+  function resetAll() {
+    tbody.innerHTML = '';
+    for(let i=0; i<10; i++) addRow();
+    resultDiv.textContent = '건수: - / 평단가: - / 수량: - / 합가: -';
+    resultDiv.style.color = '#0055aa';
+  }
+
+  // 초기 10행 추가
+  resetAll();
+
+  // 버튼 이벤트 바인딩
+  document.getElementById('addRowBtn').addEventListener('click', addRow);
+  document.getElementById('calcBtn').addEventListener('click', calculateAverage);
+  document.getElementById('resetBtn').addEventListener('click', resetAll);
+</script>
+
+</body>
+</html>
